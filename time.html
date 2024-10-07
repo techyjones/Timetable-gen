@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Timetable Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        label {
+            font-weight: bold;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1em;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        .timetable-container {
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>College Timetable Generator</h1>
+
+    <h2>Input Details for Teachers</h2>
+    <div class="form-group">
+        <label for="numTeachers">Number of Teachers</label>
+        <input type="number" id="numTeachers" min="1" placeholder="Enter number of teachers" required>
+    </div>
+    <div id="teacherDetails"></div>
+
+    <button onclick="setupTeacherInputs()">Add Teacher Details</button>
+
+    <h2>Input Subjects for Each Year</h2>
+    <div class="form-group">
+        <label for="firstYearSubjects">First Year Subjects (Comma-separated):</label>
+        <input type="text" id="firstYearSubjects" placeholder="Enter subjects for first year">
+    </div>
+    <div class="form-group">
+        <label for="secondYearSubjects">Second Year Subjects (Comma-separated):</label>
+        <input type="text" id="secondYearSubjects" placeholder="Enter subjects for second year">
+    </div>
+    <div class="form-group">
+        <label for="thirdYearSubjects">Third Year Subjects (Comma-separated):</label>
+        <input type="text" id="thirdYearSubjects" placeholder="Enter subjects for third year">
+    </div>
+
+    <div id="yearButtons" style="display:none;">
+        <button onclick="askSubjectOccurrences(1)">Set Occurrences for First Year</button>
+        <button onclick="askSubjectOccurrences(2)">Set Occurrences for Second Year</button>
+        <button onclick="askSubjectOccurrences(3)">Set Occurrences for Third Year</button>
+    </div>
+
+    <div id="timetableContainer" class="timetable-container"></div>
+
+    <button id="downloadBtn" style="display:none;" onclick="downloadWord()">Download as Word</button>
+</div>
+
+<script>
+    let timetableGenerated = { 1: false, 2: false, 3: false }; // Track generated status for each year
+    let yearOccurrences = { 1: [], 2: [], 3: [] }; // Store occurrences for each year
+
+    function setupTeacherInputs() {
+        const numTeachers = document.getElementById('numTeachers').value;
+        const teacherDetailsDiv = document.getElementById('teacherDetails');
+        teacherDetailsDiv.innerHTML = '';
+        for (let i = 0; i < numTeachers; i++) {
+            teacherDetailsDiv.innerHTML += `
+                <div class="form-group">
+                    <label for="teacherName${i}">Teacher ${i + 1} Name:</label>
+                    <input type="text" id="teacherName${i}" placeholder="Enter teacher's name">
+                </div>
+                <div class="form-group">
+                    <label for="teacherYears${i}">Teacher ${i + 1} Teaches in Years (Comma-separated):</label>
+                    <input type="text" id="teacherYears${i}" placeholder="Enter years (1, 2, 3)">
+                </div>`;
+        }
+        document.getElementById('yearButtons').style.display = 'block';
+    }
+
+    function askSubjectOccurrences(year) {
+        const subjectsInput = document.getElementById(year === 1 ? 'firstYearSubjects' : year === 2 ? 'secondYearSubjects' : 'thirdYearSubjects').value.split(',').map(sub => sub.trim());
+        const occurrences = prompt(`Enter the number of times each subject occurs for Year ${year} (Comma-separated):`);
+        
+        if (occurrences) {
+            const occurrenceArray = occurrences.split(',').map(num => parseInt(num.trim()));
+            if (occurrenceArray.length === subjectsInput.length) {
+                yearOccurrences[year] = occurrenceArray; // Store occurrences for the specified year
+                alert(`Occurrences set for Year ${year}: ${JSON.stringify(yearOccurrences[year])}`);
+            } else {
+                alert(`Please enter ${subjectsInput.length} occurrence values.`);
+            }
+        }
+    }
+
+    function generateTimetableForYear(year) {
+        if (timetableGenerated[year]) {
+            alert(`Timetable for Year ${year} has already been generated.`);
+            return;
+        }
+
+        const numTeachers = document.getElementById('numTeachers').value;
+        const teachers = [];
+
+        for (let i = 0; i < numTeachers; i++) {
+            const name = document.getElementById(`teacherName${i}`).value;
+            const years = document.getElementById(`teacherYears${i}`).value.split(',').map(year => parseInt(year));
+            if (years.includes(year)) {
+                teachers.push({ name });
+            }
+        }
+
+        generateTimetable(teachers, year);
+        timetableGenerated[year] = true;
+    }
+
+    function generateTimetable(teachers, year) {
+        const numDays = 5;
+        const numSlots = 8;
+
+        const timetable = Array.from({ length: numDays }, () => Array(numSlots).fill('Free Slot'));
+        const subjects = document.getElementById(year === 1 ? 'firstYearSubjects' : year === 2 ? 'secondYearSubjects' : 'thirdYearSubjects').value.split(',').map(sub => sub.trim());
+
+        subjects.forEach((subject, index) => {
+            const occurrenceCount = yearOccurrences[year][index];
+            let count = 0;
+            for (let day = 0; day < numDays; day++) {
+                for (let slot = 0; slot < numSlots; slot++) {
+                    if (count < occurrenceCount && Math.random() > 0.7 && timetable[day][slot] === 'Free Slot') {
+                        timetable[day][slot] = subject;
+                        count++;
+                    }
+                }
+            }
+        });
+
+        displayTimetable(timetable, year);
+    }
+
+    function displayTimetable(timetable, year) {
+        let tableHTML = `<h2>Timetable for Year ${year}</h2><table><tr><th>Day/Slot</th>`;
+        for (let slot = 1; slot <= 8; slot++) {
+            tableHTML += `<th>Slot ${slot}</th>`;
+        }
+        tableHTML += '</tr>';
+
+        for (let day = 0; day < timetable.length; day++) {
+            tableHTML += `<tr><td>Day ${day + 1}</td>`;
+            for (let slot = 0; slot < timetable[day].length; slot++) {
+                tableHTML += `<td>${timetable[day][slot]}</td>`;
+            }
+            tableHTML += '</tr>';
+        }
+        tableHTML += '</table>';
+
+        const timetableContainer = document.getElementById('timetableContainer');
+        timetableContainer.innerHTML += tableHTML;
+    }
+
+    function downloadWord() {
+        alert('Download functionality to be implemented!');
+    }
+</script>
+
+</body> 
+</html>
